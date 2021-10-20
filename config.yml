@@ -1,0 +1,23 @@
+version: 0.1
+log:
+  fields:
+    service: registry
+storage:
+  cache:
+    blobdescriptor: inmemory
+  s3:
+    accesskey: <aws user accesskey>
+    secretkey: <aws user secret key>
+    region: <region>
+    bucket: <bucket name>
+    encrypt: false
+    secure: true
+    v4auth: true
+    chunksize: 5242880
+    rootdirectory: /registry
+http:
+  addr: :443
+auth:
+  htpasswd:
+    realm: basic-realm
+    path: auth/htpasswd

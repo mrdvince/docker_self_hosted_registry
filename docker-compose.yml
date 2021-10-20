@@ -1,0 +1,65 @@
+version: '3.9'
+
+services:
+  traefik:
+    image: traefik:v2.4.13
+    ports:
+      - 80:80
+      - 443:443
+    restart: always   
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-public-certificates:/certificates
+    command:
+      - --providers.docker
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:80
+      - --entrypoints.https.address=:443
+      - --certificatesresolvers.le.acme.email=lee@${DOMAIN?Variable not set}
+      - --certificatesresolvers.le.acme.storage=/certificates/acme.json
+      - --certificatesresolvers.le.acme.tlschallenge=true
+    networks:
+      - traefik-public
+      - default
+      
+  registry:
+    restart: always
+    image: registry:2
+    environment:
+      - REGISTRY_HTTP_ADDR="0.0.0.0:443"
+    networks:
+      - traefik-public
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.http.rule=Host(`registry.${DOMAIN?Variable not set}`)"
+      - "traefik.http.routers.http.entrypoints=http"
+      - "traefik.http.routers.https.rule=Host(`registry.${DOMAIN?Variable not set}`)"
+      - "traefik.http.routers.https.entrypoints=https"
+      - "traefik.http.routers.https.tls=true"
+      - "traefik.http.routers.https.tls.certresolver=le"
+      - "traefik.http.middlewares.server-header.headers.customresponseheaders.server=docker-registry"
+      - "traefik.http.middlewares.redirect.redirectscheme.scheme=https"
+      - "traefik.http.services.registry.loadbalancer.server.port=443"
+      - "traefik.http.routers.http.middlewares=redirect,server-header"
+    volumes:
+    - ./config.yml:/etc/docker/registry/config.yml
+    - ./auth:/auth
+
+  default:
+    image: nginx:stable
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.default.rule=HostRegexp(`{default:.*}`)"
+      - "traefik.http.routers.default.entrypoints=http"
+      - "traefik.http.routers.default.priority=1"
+      - "traefik.http.routers.default.middlewares=server-header"
+    volumes:
+      - ./default/default.conf:/etc/nginx/conf.d/default.conf
+volumes:
+  registry:
+  traefik-public-certificates:
+networks:
+  traefik-public:
+    external: true
