@@ -1,0 +1,1 @@
+# docker_self_hosted_registry
